@@ -6,7 +6,8 @@ import numpy as np
 import st7789
 from PIL import Image
 from rich.console import Console
-from settings import settings
+
+from src.apps.status_display.settings import settings
 
 WIDTH = 240
 HEIGHT = 240

@@ -11,7 +11,7 @@ buttons:
 	uv run python src/scripts/buttons.py
 
 app:
-	uv run python src/app/app.py
+	uv run python -m src.apps.status_display.main
 
 format:
 	uv run ruff format src
@@ -26,3 +26,13 @@ typecheck:
 	uv run pyrefly check
 
 check: lint typecheck
+
+
+start:
+	pm2 start && pm2 save --force
+
+stop:
+	pm2 stop all && pm2 save --force
+	pm2 flush
+
+restart: stop start
