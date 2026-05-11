@@ -3,9 +3,8 @@ import signal
 import time
 
 import numpy as np
-from PIL import Image
 import st7789
-
+from PIL import Image
 
 WIDTH = 240
 HEIGHT = 240
@@ -54,11 +53,13 @@ def create_display(args):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run a rainbow animation on Pirate Audio.")
+    parser = argparse.ArgumentParser(
+        description="Run a rainbow animation on Pirate Audio."
+    )
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--cs", type=int, default=1)
     parser.add_argument("--dc", type=int, default=9)
-    parser.add_argument("--rst", type=int, default=25)
+    parser.add_argument("--rst", type=int, default=None)
     parser.add_argument("--backlight", type=int, default=13)
     parser.add_argument("--rotation", type=int, default=90)
     parser.add_argument("--spi-speed-hz", type=int, default=80 * 1000 * 1000)

@@ -3,3 +3,5 @@ RPi.GPIO==0.7.1
 spidev==3.8
 Pillow==12.2.0
 numpy==2.4.4
+pydantic-settings==2.14.1
+rich==15.0.0

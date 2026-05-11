@@ -4,7 +4,6 @@ import time
 
 import RPi.GPIO as GPIO
 
-
 BUTTONS = {
     "A": 5,
     "B": 6,
@@ -52,7 +51,11 @@ def main():
                 was_released = previous[name] == GPIO.HIGH
                 is_pressed = current == GPIO.LOW
 
-                if was_released and is_pressed and now - last_pressed[name] >= debounce_seconds:
+                if (
+                    was_released
+                    and is_pressed
+                    and now - last_pressed[name] >= debounce_seconds
+                ):
                     print(f"{name} pressed", flush=True)
                     last_pressed[name] = now
 
