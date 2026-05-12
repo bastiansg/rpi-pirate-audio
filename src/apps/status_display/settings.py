@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     fps: float = 30.0
     step: float = 0.01
     bluetooth_poll_seconds: float = 0.25
-    waiting_gif_path: str = "gif/27.gif"
-    connected_gif_path: str = "gif/23.gif"
+    gif_directory: str = "gif"
+    max_cached_animations: int = 1
 
 
 settings = Settings()

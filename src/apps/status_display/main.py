@@ -1,36 +1,17 @@
 import signal
 import subprocess
 import time
-from dataclasses import dataclass
-from pathlib import Path
 
 import st7789
-from PIL import Image, ImageSequence
+from PIL import Image
 from rich.console import Console
 
 from src.apps.status_display.settings import settings
+from src.apps.utils import ButtonPressReader, GifAnimationDeck, gif_paths
 
 WIDTH = 240
 HEIGHT = 240
 console = Console()
-
-
-@dataclass(frozen=True)
-class GifFrame:
-    image: Image.Image
-    duration: float
-
-
-class GifAnimation:
-    def __init__(self, path):
-        self.path = Path(path)
-        self.frames = load_gif_frames(self.path)
-        self.index = 0
-
-    def next_frame(self):
-        frame = self.frames[self.index]
-        self.index = (self.index + 1) % len(self.frames)
-        return frame
 
 
 class BluetoothConnectionReader:
@@ -67,22 +48,6 @@ class BluetoothConnectionReader:
         return self.last_connected
 
 
-def load_gif_frames(path):
-    with Image.open(path) as gif:
-        frames = []
-        for frame in ImageSequence.Iterator(gif):
-            duration = frame.info.get("duration", 100) / 1000
-            image = frame.convert("RGB")
-            if image.size != (WIDTH, HEIGHT):
-                image = image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
-            frames.append(GifFrame(image.copy(), max(duration, 0.01)))
-
-    if not frames:
-        raise ValueError(f"GIF has no frames: {path}")
-
-    return frames
-
-
 def create_display(config):
     return st7789.ST7789(
         port=config.port,
@@ -100,8 +65,7 @@ def create_display(config):
 def main():
     display = create_display(settings)
     bluetooth = BluetoothConnectionReader(settings.bluetooth_poll_seconds)
-    waiting_animation = GifAnimation(settings.waiting_gif_path)
-    connected_animation = GifAnimation(settings.connected_gif_path)
+    buttons = ButtonPressReader()
 
     running = True
 
@@ -114,8 +78,18 @@ def main():
 
     black = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
     was_connected = False
+    animation_deck = None
 
     try:
+        buttons.setup()
+        animation_deck = GifAnimationDeck(
+            gif_paths(settings.gif_directory),
+            size=(WIDTH, HEIGHT),
+            max_cached_animations=settings.max_cached_animations,
+        )
+        current_animation = animation_deck.next_animation()
+        console.log(f"Showing animation: {current_animation.path}")
+
         while running:
             is_connected = bluetooth.connected()
             if is_connected != was_connected:
@@ -124,11 +98,16 @@ def main():
                 else:
                     console.log("[yellow]Bluetooth disconnected[/yellow]")
                 was_connected = is_connected
+                current_animation = animation_deck.next_animation()
+                console.log(f"Showing animation: {current_animation.path}")
 
-            if is_connected:
-                frame = connected_animation.next_frame()
-            else:
-                frame = waiting_animation.next_frame()
+            pressed_buttons = buttons.pressed()
+            if pressed_buttons:
+                console.log(f"[cyan]Button {', '.join(pressed_buttons)} pressed[/cyan]")
+                current_animation = animation_deck.next_animation()
+                console.log(f"Showing animation: {current_animation.path}")
+
+            frame = current_animation.next_frame()
 
             frame_started = time.monotonic()
             display.display(frame.image)
@@ -136,6 +115,9 @@ def main():
             time.sleep(max(frame.duration - elapsed, 0.0))
     finally:
         display.display(black)
+        if animation_deck is not None:
+            animation_deck.close()
+        buttons.cleanup()
 
 
 if __name__ == "__main__":

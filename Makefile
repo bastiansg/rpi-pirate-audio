@@ -1,10 +1,10 @@
-.PHONY: uv-setup app buttons-listener format lint lint-fix typecheck check
+.PHONY: uv-setup status-display buttons-listener format lint lint-fix typecheck check
 
 uv-setup:
 	uv venv --clear
 	uv pip install -r requirements.txt
 
-status_display:
+status-display:
 	uv run python -m src.apps.status_display.main
 
 buttons-listener:
