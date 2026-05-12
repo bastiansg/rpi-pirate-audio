@@ -1,8 +1,10 @@
-import argparse
 import signal
 import time
 
 import RPi.GPIO as GPIO
+from rich.console import Console
+
+from src.apps.buttons_listener.settings import settings
 
 BUTTONS = {
     "A": 5,
@@ -11,16 +13,10 @@ BUTTONS = {
     "Y": 24,
 }
 
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Test Pirate Audio buttons.")
-    parser.add_argument("--bounce-ms", type=int, default=200)
-    parser.add_argument("--poll-ms", type=int, default=20)
-    return parser.parse_args()
+console = Console()
 
 
 def main():
-    args = parse_args()
     running = True
 
     def stop(_signum, _frame):
@@ -36,12 +32,12 @@ def main():
         for pin in BUTTONS.values():
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-        print("Press Pirate Audio buttons A, B, X, or Y. Ctrl+C to stop.", flush=True)
+        console.log("[green]Listening for Pirate Audio button events[/green]")
 
         previous = {name: GPIO.input(pin) for name, pin in BUTTONS.items()}
         last_pressed = {name: 0.0 for name in BUTTONS}
-        debounce_seconds = args.bounce_ms / 1000.0
-        poll_seconds = args.poll_ms / 1000.0
+        debounce_seconds = settings.bounce_ms / 1000.0
+        poll_seconds = settings.poll_ms / 1000.0
 
         while running:
             now = time.monotonic()
@@ -56,7 +52,7 @@ def main():
                     and is_pressed
                     and now - last_pressed[name] >= debounce_seconds
                 ):
-                    print(f"{name} pressed", flush=True)
+                    console.log(f"[cyan]Button {name} pressed[/cyan]")
                     last_pressed[name] = now
 
                 previous[name] = current
@@ -64,6 +60,7 @@ def main():
             time.sleep(poll_seconds)
     finally:
         GPIO.cleanup()
+        console.log("[yellow]Stopped listening for button events[/yellow]")
 
 
 if __name__ == "__main__":

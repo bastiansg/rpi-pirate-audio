@@ -19,8 +19,7 @@ make app
 Useful helpers:
 
 ```bash
-make rainbow
-make buttons
+make buttons-listener
 ```
 
 ## PM2 Setup

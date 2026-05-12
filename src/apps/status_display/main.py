@@ -1,10 +1,11 @@
 import signal
 import subprocess
 import time
+from dataclasses import dataclass
+from pathlib import Path
 
-import numpy as np
 import st7789
-from PIL import Image
+from PIL import Image, ImageSequence
 from rich.console import Console
 
 from src.apps.status_display.settings import settings
@@ -12,6 +13,24 @@ from src.apps.status_display.settings import settings
 WIDTH = 240
 HEIGHT = 240
 console = Console()
+
+
+@dataclass(frozen=True)
+class GifFrame:
+    image: Image.Image
+    duration: float
+
+
+class GifAnimation:
+    def __init__(self, path):
+        self.path = Path(path)
+        self.frames = load_gif_frames(self.path)
+        self.index = 0
+
+    def next_frame(self):
+        frame = self.frames[self.index]
+        self.index = (self.index + 1) % len(self.frames)
+        return frame
 
 
 class BluetoothConnectionReader:
@@ -48,32 +67,20 @@ class BluetoothConnectionReader:
         return self.last_connected
 
 
-def rainbow_frame(width, height, offset):
-    x = np.linspace(0.0, 1.0, width, dtype=np.float32)
-    y = np.linspace(0.0, 1.0, height, dtype=np.float32)
-    xx, yy = np.meshgrid(x, y)
+def load_gif_frames(path):
+    with Image.open(path) as gif:
+        frames = []
+        for frame in ImageSequence.Iterator(gif):
+            duration = frame.info.get("duration", 100) / 1000
+            image = frame.convert("RGB")
+            if image.size != (WIDTH, HEIGHT):
+                image = image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+            frames.append(GifFrame(image.copy(), max(duration, 0.01)))
 
-    hue = ((xx + yy + offset) % 1.0) * 6.0
-    channel = 1.0 - np.abs(hue % 2.0 - 1.0)
+    if not frames:
+        raise ValueError(f"GIF has no frames: {path}")
 
-    red = np.select(
-        [hue < 1, hue < 2, hue < 3, hue < 4, hue < 5],
-        [1.0, channel, 0.0, 0.0, channel],
-        default=1.0,
-    )
-    green = np.select(
-        [hue < 1, hue < 2, hue < 3, hue < 4, hue < 5],
-        [channel, 1.0, 1.0, channel, 0.0],
-        default=0.0,
-    )
-    blue = np.select(
-        [hue < 1, hue < 2, hue < 3, hue < 4, hue < 5],
-        [0.0, 0.0, channel, 1.0, 1.0],
-        default=channel,
-    )
-
-    rgb = np.dstack((red, green, blue))
-    return Image.fromarray((rgb * 255).astype(np.uint8), "RGB")
+    return frames
 
 
 def create_display(config):
@@ -93,6 +100,8 @@ def create_display(config):
 def main():
     display = create_display(settings)
     bluetooth = BluetoothConnectionReader(settings.bluetooth_poll_seconds)
+    waiting_animation = GifAnimation(settings.waiting_gif_path)
+    connected_animation = GifAnimation(settings.connected_gif_path)
 
     running = True
 
@@ -103,8 +112,6 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    delay = 1.0 / settings.fps
-    offset = 0.0
     black = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
     was_connected = False
 
@@ -119,12 +126,14 @@ def main():
                 was_connected = is_connected
 
             if is_connected:
-                display.display(rainbow_frame(WIDTH, HEIGHT, offset))
-                offset = (offset + settings.step) % 1.0
+                frame = connected_animation.next_frame()
             else:
-                display.display(black)
+                frame = waiting_animation.next_frame()
 
-            time.sleep(delay)
+            frame_started = time.monotonic()
+            display.display(frame.image)
+            elapsed = time.monotonic() - frame_started
+            time.sleep(max(frame.duration - elapsed, 0.0))
     finally:
         display.display(black)
 

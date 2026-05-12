@@ -1,17 +1,14 @@
-.PHONY: uv-setup rainbow buttons app format lint lint-fix typecheck check
+.PHONY: uv-setup app buttons-listener format lint lint-fix typecheck check
 
 uv-setup:
 	uv venv --clear
 	uv pip install -r requirements.txt
 
-rainbow:
-	uv run python src/scripts/rainbow.py
-
-buttons:
-	uv run python src/scripts/buttons.py
-
-app:
+status_display:
 	uv run python -m src.apps.status_display.main
+
+buttons-listener:
+	uv run python -m src.apps.buttons_listener.main
 
 format:
 	uv run ruff format src
