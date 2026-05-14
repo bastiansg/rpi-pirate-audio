@@ -152,6 +152,9 @@ def load_gif_frames(path, size):
                     frame_image = image.copy()
             finally:
                 image.close()
+            rotated = frame_image.transpose(Image.Transpose.ROTATE_180)
+            frame_image.close()
+            frame_image = rotated
             frames.append(GifFrame(image=frame_image, duration=max(duration, 0.01)))
 
     if not frames:
