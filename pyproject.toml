@@ -1,11 +1,11 @@
 [project]
 name = "rpi-pirate-audio"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 
 [tool.ruff]
 line-length = 88
-target-version = "py313"
+target-version = "py314"
 src = ["src"]
 
 [tool.ruff.lint]
@@ -20,7 +20,7 @@ line-ending = "auto"
 [tool.pyrefly]
 project-includes = ["src"]
 project-excludes = ["**/__pycache__", ".venv"]
-python-version = "3.13"
+python-version = "3.14"
 python-platform = "linux"
 python-interpreter-path = ".venv/bin/python"
 search-path = ["."]

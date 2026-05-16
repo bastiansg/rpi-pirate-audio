@@ -34,7 +34,7 @@ class BluetoothConnectionReader:
                 text=True,
                 timeout=2,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except OSError, subprocess.TimeoutExpired:
             self.last_connected = False
             return self.last_connected
 
@@ -74,7 +74,7 @@ class AudioVolumeController:
                 text=True,
                 timeout=2,
             )
-        except (OSError, subprocess.SubprocessError):
+        except OSError, subprocess.SubprocessError:
             return None
 
         return next_volume
@@ -88,7 +88,7 @@ class AudioVolumeController:
                 text=True,
                 timeout=2,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except OSError, subprocess.TimeoutExpired:
             return None
 
         if result.returncode != 0:
