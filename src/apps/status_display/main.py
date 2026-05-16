@@ -7,7 +7,7 @@ from PIL import Image
 from rich.console import Console
 
 from src.apps.status_display.settings import settings
-from src.apps.utils import ButtonPressReader, GifAnimationDeck, gif_paths
+from src.apps.status_display.utils import ButtonPressReader, GifAnimationDeck, gif_paths
 
 WIDTH = 240
 HEIGHT = 240

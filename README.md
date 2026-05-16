@@ -23,12 +23,6 @@ make uv-setup
 make app
 ```
 
-Useful helpers:
-
-```bash
-make buttons-listener
-```
-
 ## PM2 Setup
 
 Install PM2 globally:

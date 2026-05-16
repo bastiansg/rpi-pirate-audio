@@ -1,4 +1,4 @@
-.PHONY: uv-setup status-display buttons-listener format lint lint-fix typecheck check
+.PHONY: uv-setup status-display format lint lint-fix typecheck check
 
 uv-setup:
 	uv venv --clear
@@ -6,9 +6,6 @@ uv-setup:
 
 status-display:
 	uv run python -m src.apps.status_display.main
-
-buttons-listener:
-	uv run python -m src.apps.buttons_listener.main
 
 format:
 	uv run ruff format src
