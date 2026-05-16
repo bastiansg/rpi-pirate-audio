@@ -1,8 +1,6 @@
-import itertools
 import random
 import time
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import RPi.GPIO as GPIO
@@ -48,12 +46,23 @@ class GifAnimationDeck:
     def __init__(self, paths, size, max_cached_animations=1):
         self.size = size
         self.paths = list(paths)
+        if not self.paths:
+            raise ValueError("No GIF files found")
+        random.shuffle(self.paths)
+        self.index = -1
         self.max_cached_animations = max(max_cached_animations, 1)
         self.animation_cache = OrderedDict()
-        self.path_cycle = shuffled_path_cycle(self.paths)
 
     def next_animation(self):
-        path = next(self.path_cycle)
+        self.index = (self.index + 1) % len(self.paths)
+        return self.current_animation()
+
+    def previous_animation(self):
+        self.index = (self.index - 1) % len(self.paths)
+        return self.current_animation()
+
+    def current_animation(self):
+        path = self.paths[self.index]
         animation = self.animation_cache.get(path)
         if animation is None:
             animation = GifAnimation(path, self.size)
@@ -86,6 +95,7 @@ class ButtonPressReader:
         GPIO.setmode(GPIO.BCM)
         for pin in self.buttons.values():
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        time.sleep(0.05)
         self.previous = {name: GPIO.input(pin) for name, pin in self.buttons.items()}
 
     def pressed(self):
@@ -111,21 +121,6 @@ class ButtonPressReader:
 
     def cleanup(self):
         GPIO.cleanup(list(self.buttons.values()))
-
-
-def shuffled_path_cycle(paths: Iterable[Path]) -> Iterator[Path]:
-    items = list(paths)
-    if not items:
-        raise ValueError("No GIF files found")
-
-    previous = None
-    for _ in itertools.cycle([None]):
-        batch = random.sample(items, len(items))
-        if previous is not None and len(batch) > 1 and batch[0] == previous:
-            batch[0], batch[1] = batch[1], batch[0]
-
-        yield from batch
-        previous = batch[-1]
 
 
 def gif_paths(directory):

@@ -4,6 +4,13 @@ Bluetooth audio sink utilities for a Raspberry Pi with a Pirate Audio / HifiBerr
 
 The main app shows an animated rainbow while a Bluetooth device is connected, and a black screen otherwise.
 
+Button behavior:
+
+- `A`: decrease Raspberry Pi output volume.
+- `B`: increase Raspberry Pi output volume.
+- `X`: show the previous shuffled animation.
+- `Y`: show the next shuffled animation.
+
 ## Setup
 
 ```bash
