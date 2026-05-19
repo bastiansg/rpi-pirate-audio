@@ -1,4 +1,4 @@
-.PHONY: uv-setup status-display format lint lint-fix typecheck check
+.PHONY: uv-setup status-display bluetooth-a2dp-setup format lint lint-fix typecheck check
 
 uv-setup:
 	uv venv --clear
@@ -6,6 +6,9 @@ uv-setup:
 
 status-display:
 	uv run python -m src.apps.status_display.main
+
+bluetooth-a2dp-setup:
+	./scripts/setup-bluetooth-a2dp-sink.sh
 
 format:
 	uv run ruff format src
