@@ -205,6 +205,32 @@ EOF
     run_sudo systemctl enable --now bt-agent
 }
 
+install_discoverable_service() {
+    log "Installing persistent Bluetooth discoverability service"
+    run_sudo tee /etc/systemd/system/bluetooth-discoverable.service >/dev/null <<'EOF'
+[Unit]
+Description=Keep Bluetooth powered, pairable, and discoverable
+After=bluetooth.service
+PartOf=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bluetoothctl power on
+ExecStart=/usr/bin/bluetoothctl pairable on
+ExecStart=/usr/bin/bluetoothctl discoverable-timeout 0
+ExecStart=/usr/bin/bluetoothctl discoverable on
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=bluetooth.target
+EOF
+
+    run_sudo systemctl daemon-reload
+    run_sudo systemctl enable --now bluetooth-discoverable
+}
+
 set_main_conf_value() {
     local key="$1"
     local value="$2"
@@ -267,6 +293,7 @@ configure_open_pairing() {
     log "Restarting Bluetooth"
     run_sudo systemctl restart bluetooth
 
+    install_discoverable_service
     make_adapter_visible 0
 }
 
@@ -331,6 +358,7 @@ print_status() {
     systemctl is-active bluetooth || true
     if [[ ${OPEN_PAIRING} -eq 1 ]]; then
         systemctl is-active bt-agent || true
+        systemctl is-active bluetooth-discoverable || true
     fi
 
     log "Bluetooth adapter summary"
