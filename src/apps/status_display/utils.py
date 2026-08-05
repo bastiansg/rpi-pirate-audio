@@ -4,7 +4,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 import RPi.GPIO as GPIO
-from PIL import Image, ImageSequence
+from PIL import Image
 from pydantic import BaseModel, ConfigDict
 
 BUTTONS = {
@@ -15,17 +15,20 @@ BUTTONS = {
 }
 
 
-class GifFrame(BaseModel):
+class AnimationFrame(BaseModel):
     image: Image.Image
     duration: float
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
 
-class GifAnimation:
-    def __init__(self, path, size):
+class FrameAnimation:
+    def __init__(self, path, frame_duration):
         self.path = Path(path)
-        self.frames = load_gif_frames(self.path, size)
+        paths = sorted(self.path.glob("*.png"))
+        if not paths:
+            raise ValueError(f"No PNG frames found in directory: {self.path}")
+        self.frames = tuple(load_png_frame(path, frame_duration) for path in paths)
         self.index = 0
 
     def next_frame(self):
@@ -39,17 +42,16 @@ class GifAnimation:
     def close(self):
         for frame in self.frames:
             frame.image.close()
-        self.frames.clear()
 
 
-class GifAnimationDeck:
-    def __init__(self, paths, size, max_cached_animations=1):
-        self.size = size
+class FrameAnimationDeck:
+    def __init__(self, paths, frame_duration, max_cached_animations=1):
         self.paths = list(paths)
         if not self.paths:
-            raise ValueError("No GIF files found")
+            raise ValueError("No frame directories found")
         random.shuffle(self.paths)
         self.index = -1
+        self.frame_duration = frame_duration
         self.max_cached_animations = max(max_cached_animations, 1)
         self.animation_cache = OrderedDict()
 
@@ -65,23 +67,25 @@ class GifAnimationDeck:
         path = self.paths[self.index]
         animation = self.animation_cache.get(path)
         if animation is None:
-            animation = GifAnimation(path, self.size)
+            while len(self.animation_cache) >= self.max_cached_animations:
+                _path, old_animation = self.animation_cache.popitem(last=False)
+                old_animation.close()
+            animation = FrameAnimation(path, self.frame_duration)
             self.animation_cache[path] = animation
-            self.evict_old_animations()
         else:
             self.animation_cache.move_to_end(path)
         animation.reset()
         return animation
 
-    def evict_old_animations(self):
-        while len(self.animation_cache) > self.max_cached_animations:
-            _path, animation = self.animation_cache.popitem(last=False)
-            animation.close()
-
     def close(self):
         for animation in self.animation_cache.values():
             animation.close()
         self.animation_cache.clear()
+
+
+def load_png_frame(path, duration):
+    with Image.open(path) as image:
+        return AnimationFrame(image=image.copy(), duration=duration)
 
 
 class ButtonPressReader:
@@ -123,36 +127,8 @@ class ButtonPressReader:
         GPIO.cleanup(list(self.buttons.values()))
 
 
-def gif_paths(directory):
-    paths = sorted(Path(directory).glob("*.gif"))
+def frame_directories(directory):
+    paths = sorted(path for path in Path(directory).iterdir() if path.is_dir())
     if not paths:
-        raise ValueError(f"No GIF files found in directory: {directory}")
+        raise ValueError(f"No frame directories found in directory: {directory}")
     return paths
-
-
-def load_gif_frames(path, size):
-    with Image.open(path) as gif:
-        frames = []
-        for frame in ImageSequence.Iterator(gif):
-            duration = frame.info.get("duration", 100) / 1000
-            image = frame.convert("RGB")
-            try:
-                if image.size != size:
-                    resized = image.resize(size, Image.Resampling.LANCZOS)
-                    try:
-                        frame_image = resized.copy()
-                    finally:
-                        resized.close()
-                else:
-                    frame_image = image.copy()
-            finally:
-                image.close()
-            rotated = frame_image.transpose(Image.Transpose.ROTATE_180)
-            frame_image.close()
-            frame_image = rotated
-            frames.append(GifFrame(image=frame_image, duration=max(duration, 0.01)))
-
-    if not frames:
-        raise ValueError(f"GIF has no frames: {path}")
-
-    return frames

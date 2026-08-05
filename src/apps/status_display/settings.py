@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     backlight: int = 13
     rotation: int = 90
     spi_speed_hz: int = 80 * 1000 * 1000
-    fps: float = 30.0
     step: float = 0.01
     button_debounce_seconds: float = 0.05
-    gif_directory: str = "gif"
+    frames_directory: str = "frames"
+    frame_duration: float = 1 / 20
     max_cached_animations: int = 1
     volume_step: float = 0.05
     min_volume: float = 0.0

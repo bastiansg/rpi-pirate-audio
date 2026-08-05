@@ -9,7 +9,11 @@ from PIL import Image
 from rich.console import Console
 
 from src.apps.status_display.settings import settings
-from src.apps.status_display.utils import ButtonPressReader, GifAnimationDeck, gif_paths
+from src.apps.status_display.utils import (
+    ButtonPressReader,
+    FrameAnimationDeck,
+    frame_directories,
+)
 
 WIDTH = 240
 HEIGHT = 240
@@ -185,9 +189,9 @@ def main():
 
     try:
         buttons.setup()
-        animation_deck = GifAnimationDeck(
-            gif_paths(settings.gif_directory),
-            size=(WIDTH, HEIGHT),
+        animation_deck = FrameAnimationDeck(
+            frame_directories(settings.frames_directory),
+            frame_duration=settings.frame_duration,
             max_cached_animations=settings.max_cached_animations,
         )
         current_animation = animation_deck.next_animation()
@@ -233,9 +237,8 @@ def main():
                     else:
                         console.log(f"[yellow]button {name} has no action[/yellow]")
 
-            frame = current_animation.next_frame()
-
             frame_started = time.monotonic()
+            frame = current_animation.next_frame()
             display.display(frame.image)
             elapsed = time.monotonic() - frame_started
             time.sleep(max(frame.duration - elapsed, 0.0))

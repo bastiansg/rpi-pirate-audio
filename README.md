@@ -2,7 +2,8 @@
 
 Bluetooth audio sink utilities for a Raspberry Pi with a Pirate Audio / HifiBerry-style DAC and ST7789 display.
 
-The main app shows an animated rainbow while a Bluetooth device is connected, and a black screen otherwise.
+The main app continuously shows an animation whether or not a Bluetooth device is
+connected. The animation changes when the Bluetooth connection state changes.
 
 Button behavior:
 
