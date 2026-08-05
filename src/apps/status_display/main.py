@@ -1,5 +1,7 @@
+import re
 import signal
 import subprocess
+import threading
 import time
 
 import st7789
@@ -15,17 +17,31 @@ console = Console()
 
 
 class BluetoothConnectionReader:
-    def __init__(self, poll_seconds):
-        self.poll_seconds = poll_seconds
-        self.last_poll = 0.0
-        self.last_connected = False
+    connected_pattern = re.compile(
+        r"Device (?P<address>(?:[0-9A-F]{2}:){5}[0-9A-F]{2}) Connected: "
+        r"(?P<connected>yes|no)"
+    )
+
+    def __init__(self):
+        self.connected_devices = set()
+        self.lock = threading.Lock()
+        self.monitor = subprocess.Popen(
+            ["bluetoothctl", "--monitor"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+        )
+        self.connected_devices.update(self.read_connected_devices())
+        self.thread = threading.Thread(target=self.read_events, daemon=True)
+        self.thread.start()
 
     def connected(self):
-        now = time.monotonic()
-        if now - self.last_poll < self.poll_seconds:
-            return self.last_connected
+        with self.lock:
+            return bool(self.connected_devices)
 
-        self.last_poll = now
+    def read_connected_devices(self):
         try:
             result = subprocess.run(
                 ["bluetoothctl", "devices", "Connected"],
@@ -34,18 +50,45 @@ class BluetoothConnectionReader:
                 text=True,
                 timeout=2,
             )
-        except (OSError, subprocess.TimeoutExpired):
-            self.last_connected = False
-            return self.last_connected
+        except OSError, subprocess.TimeoutExpired:
+            return set()
 
         if result.returncode != 0:
-            self.last_connected = False
-            return self.last_connected
+            return set()
 
-        self.last_connected = any(
-            line.startswith("Device ") for line in result.stdout.splitlines()
-        )
-        return self.last_connected
+        return {
+            parts[1]
+            for line in result.stdout.splitlines()
+            if line.startswith("Device ") and len(parts := line.split(maxsplit=2)) == 3
+        }
+
+    def read_events(self):
+        if self.monitor.stdout is None:
+            return
+
+        for line in self.monitor.stdout:
+            match = self.connected_pattern.search(line)
+            if match is None:
+                continue
+
+            address = match.group("address")
+            with self.lock:
+                if match.group("connected") == "yes":
+                    self.connected_devices.add(address)
+                else:
+                    self.connected_devices.discard(address)
+
+    def close(self):
+        if self.monitor.stdin is not None:
+            self.monitor.stdin.close()
+        if self.monitor.poll() is None:
+            self.monitor.terminate()
+        try:
+            self.monitor.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            self.monitor.kill()
+            self.monitor.wait()
+        self.thread.join(timeout=2)
 
 
 class AudioVolumeController:
@@ -74,7 +117,7 @@ class AudioVolumeController:
                 text=True,
                 timeout=2,
             )
-        except (OSError, subprocess.SubprocessError):
+        except OSError, subprocess.SubprocessError:
             return None
 
         return next_volume
@@ -88,7 +131,7 @@ class AudioVolumeController:
                 text=True,
                 timeout=2,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except OSError, subprocess.TimeoutExpired:
             return None
 
         if result.returncode != 0:
@@ -119,7 +162,7 @@ def create_display(config):
 
 def main():
     display = create_display(settings)
-    bluetooth = BluetoothConnectionReader(settings.bluetooth_poll_seconds)
+    bluetooth = BluetoothConnectionReader()
     volume = AudioVolumeController(
         step=settings.volume_step,
         min_volume=settings.min_volume,
@@ -197,6 +240,7 @@ def main():
             elapsed = time.monotonic() - frame_started
             time.sleep(max(frame.duration - elapsed, 0.0))
     finally:
+        bluetooth.close()
         display.display(black)
         if animation_deck is not None:
             animation_deck.close()
